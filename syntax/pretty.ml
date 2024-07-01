@@ -289,7 +289,33 @@ let decompile t =
       pname
     | exception Not_found ->
       DescrTable.add memo t None;
-      let var_table = split_variables t in
+      let res = pr_var t in
+      match DescrTable.find memo t with
+        None -> DescrTable.remove memo t; res.descr
+      | Some (n, _, pname) ->
+        DescrTable.replace memo t (Some (n, res, pname)); res.descr
+  and pr_node n = pr_descr (Typ.descr n)
+  and pr_choose_compl t =
+    let do_complement = choose_complement t in
+    let t = if do_complement then Typ.neg t else t in
+    let res = pr_no_var t in
+    match res, do_complement with
+      [], false -> empty_
+    | [], true -> any
+    | l, false -> pcup l
+    | l, true -> diff any @@ pcup l
+  and pr_var t =
+    let var_table = split_variables t in
+      let () = VarTable.iter (
+          fun ((p, n) : Vars.t) (t : Stt.Typ.t) ->
+            Format.eprintf "\n%! %a \n%! %a \n%! %a \n%!\n%!" 
+              Var.Set.pp p
+              Var.Set.pp n
+              Stt.Typ.pp t
+            ;
+        )
+        var_table
+      in
       let acc, has_others  =
         match VarTable.find_opt var_table Var.Set.(empty, empty) with
           Some t -> if is_any t then [any], false else
@@ -308,21 +334,7 @@ let decompile t =
                 (pcap (List.rev tacc)) :: acc)
             var_table acc
       in
-      let res = pcup acc in
-      match DescrTable.find memo t with
-        None -> DescrTable.remove memo t; res.descr
-      | Some (n, _, pname) ->
-        DescrTable.replace memo t (Some (n, res, pname)); res.descr
-  and pr_node n = pr_descr (Typ.descr n)
-  and pr_choose_compl t =
-    let do_complement = choose_complement t in
-    let t = if do_complement then Typ.neg t else t in
-    let res = pr_no_var t in
-    match res, do_complement with
-      [], false -> empty_
-    | [], true -> any
-    | l, false -> pcup l
-    | l, true -> diff any @@ pcup l
+      pcup acc
   and pr_no_var t =
     let open Typ in
     let acc = [] in
